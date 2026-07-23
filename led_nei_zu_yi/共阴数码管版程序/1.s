@@ -400,27 +400,28 @@ __anjian1_fanhui:
 __anjian2:
 __xianshi_dianyuan:
 	@按键2功能：显示PA6采集的电池电压
-	@分压：10k/240k，参考电压3.3V
-	@计算公式：V = ADC_VALUE * 3.3 * 250 / (4095 * 240) = ADC_VALUE * 3.357 / 1000
-	@显示格式：X.XX V (保留2位小数)
+	@分压：240k（上）/ 10k（下），参考电压3.3V
+	@计算公式：V = ADC_VALUE * 3.3 * 25 / (4095 * 10) = ADC_VALUE * 3.3 * 2.5 / 4095
+	@         = ADC_VALUE * 8.25 / 4095 = ADC_VALUE * 0.002014...
+	@简化为：V = ADC_VALUE * 2014 / 1000000 (单位V)
+	@显示格式：XX.XX V (保留2位小数) = ADC_VALUE * 2014 / 10000 (单位0.01V)
 	
 	@读取ADC值（DMA传输到0x20000160）
 	ldr r0, = 0x20000160    @DMA存储地址
 	ldr r1, [r0]            @读取ADC值
 	
-	@计算电压值: r1 * 3357 / 1000000 (单位V)
-	@实际显示: (r1 * 3357 / 1000000) * 100 = r1 * 3357 / 10000 (单位0.01V)
-	ldr r2, = 3357
-	muls r1, r1, r2         @r1 = ADC_VALUE * 3357
+	@计算电压值: r1 * 2014 / 10000 (单位0.01V，保留2位小数)
+	ldr r2, = 2014
+	muls r1, r1, r2         @r1 = ADC_VALUE * 2014
 	ldr r2, = 10000
-	udiv r1, r1, r2         @r1 = (ADC_VALUE * 3357) / 10000，单位0.01V
+	udiv r1, r1, r2         @r1 = (ADC_VALUE * 2014) / 10000，单位0.01V
 	
-	@限制范围：最大值对应3.3V约11056 * 0.01V = 110.56
+	@限制范围：最大值对应3.3V约1637 * 0.01V = 16.37
 	ldr r2, = 4095          @12位ADC最大值
-	ldr r3, = 3357
+	ldr r3, = 2014
 	muls r2, r2, r3
 	ldr r3, = 10000
-	udiv r2, r2, r3         @r2 = 最大电压值(0.01V单位) = 1368
+	udiv r2, r2, r3         @r2 = 最大电压值(0.01V单位) ≈ 825
 	cmp r1, r2
 	ble __dianyuan_shifan_ok
 	mov r1, r2              @限制最大值
@@ -430,8 +431,8 @@ __dianyuan_shifan_ok:
 	ldr r2, = dianyuan_xianshi
 	str r1, [r2]
 	
-	@调用数码管显示函数，显示4位数字(百位、十位、小数点、个位)
-	movs r1, # 3            @显示3位数字 + 小数点
+	@调用数码管显示函数，显示4位数字
+	movs r1, # 3            @显示格式 XX.XX
 	bl _zhuanshumaguanma
 	bl _xieshumaguan
 	b __ren_wu_diao_du
